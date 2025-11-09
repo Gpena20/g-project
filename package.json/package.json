@@ -1,0 +1,8 @@
+{
+  "name": "g-project",
+  "version": "1.0.0",
+  "description": "G Project NBA daily forecast app",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}

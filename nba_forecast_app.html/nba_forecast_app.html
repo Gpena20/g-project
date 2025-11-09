@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Dark Gray */
+            color: #f3f4f6; /* Light Gray */
+        }
+        .card {
+            background-color: #1f2937; /* Gray-800 */
+            border: 1px solid #374151; /* Gray-700 */
+        }
+        .header-bg {
+            background-color: #1f2937; /* Gray-800 */
+            border-bottom: 1px solid #374151; /* Gray-700 */
+        }
+        .team-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #374151;
+            border: 2px solid #4b5563;
+        }
+        .status-out {
+            color: #ef4444; /* Red-500 */
+            font-weight: 600;
+        }
+        .status-qst {
+            color: #f59e0b; /* Amber-500 */
+            font-weight: 600;
+        }
+        .reasoning-card {
+            background-color: #374151; /* Gray-700 */
+            border-left: 4px solid #3b82f6; /* Blue-500 */
+        }
+        .forecast-up {
+            color: #22c55e; /* Green-500 */
+        }
+        .forecast-down {
+            color: #ef4444; /* Red-500 */
+        }
+        .forecast-flat {
+            color: #6b7280; /* Gray-500 */
+        }
+        .loading-spinner {
+            border: 4px solid #374151;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="antialiased">
+
+    <div id="app" class="container mx-auto p-4 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="header-bg sticky top-0 z-10 p-4 mb-6 rounded-lg shadow-md">
+            <h1 class="text-3xl font-bold text-white text-center">G Project</h1>
+            <p id="current-date" class="text-center text-lg text-gray-400"></p>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loading" class="flex flex-col items-center justify-center h-64">
+            <div class="loading-spinner"></div>
+            <p class="mt-4 text-gray-400">Fetching today's games...</p>
+        </div>
+
+        <!-- Game Schedule -->
+        <div id="game-schedule" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 hidden">
+            <!-- Game cards will be injected here -->
+        </div>
+
+        <!-- Main Forecast Section -->
+        <main id="forecast-details" class="space-y-6">
+            <!-- Forecast cards will be injected here -->
+        </main>
+        
+        <!-- No Games Message -->
+        <div id="no-games" class="card p-8 rounded-lg shadow-lg text-center text-gray-400 hidden">
+            <h2 class="text-2xl font-bold mb-2">No NBA games scheduled for today.</h2>
+            <p>Please check back tomorrow for new forecasts.</p>
+        </div>
+
+    </div>
+
+    <!-- TEMPLATES -->
+    <!-- Game Card Template -->
+    <template id="game-card-template">
+        <div class="card p-4 rounded-lg shadow-lg cursor-pointer transition-all duration-200 hover:border-blue-500" onclick="renderForecast(this.dataset.gameId)">
+            <div class="flex justify-around items-center mb-2">
+                <div class="text-center">
+                    <img src="" alt="Away Team" class="team-logo mx-auto away-logo">
+                    <span class="font-semibold text-sm away-short"></span>
+                </div>
+                <span class="text-gray-400 text-lg font-bold">@</span>
+                <div class="text-center">
+                    <img src="" alt="Home Team" class="team-logo mx-auto home-logo">
+                    <span class="font-semibold text-sm home-short"></span>
+                </div>
+            </div>
+            <p class="text-center text-xs text-gray-400 game-time"></p>
+        </div>
+    </template>
+
+    <!-- Forecast Card Template -->
+    <template id="forecast-card-template">
+        <div class="card rounded-lg shadow-2xl overflow-hidden">
+            <!-- Game Header -->
+            <div class="p-4 bg-gray-800 border-b border-gray-700">
+                <div class="flex justify-around items-center">
+                    <div class="text-center flex-1">
+                        <img src="" alt="Away Team" class="team-logo mx-auto away-logo mb-2">
+                        <h2 class="text-xl font-bold away-name"></h2>
+                    </div>
+                    <span class="text-gray-400 text-3xl font-bold mx-4">@</span>
+                    <div class="text-center flex-1">
+                        <img src="" alt="Home Team" class="team-logo mx-auto home-logo mb-2">
+                        <h2 class="text-xl font-bold home-name"></h2>
+                    </div>
+                </div>
+                <p class="text-center text-sm text-gray-400 mt-2 game-time"></p>
+            </div>
+
+            <!-- Injury Report -->
+            <div class="p-4 border-b border-gray-700">
+                <h3 class="text-lg font-semibold mb-2 text-white">Injury Report</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="away-injuries">
+                        <h4 class="font-bold text-gray-300 away-short"></h4>
+                        <ul class="list-disc list-inside text-sm"></ul>
+                    </div>
+                    <div class="home-injuries">
+                        <h4 class="font-bold text-gray-300 home-short"></h4>
+                        <ul class="list-disc list-inside text-sm"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Forecasts -->
+            <div class="p-4">
+                <h3 class="text-lg font-semibold mb-3 text-white">Key Player Forecasts</h3>
+                <div class="space-y-5 player-list">
+                    <!-- Player items will be injected here -->
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Player Item Template -->
+    <template id="player-item-template">
+        <div class="player-item flex flex-col md:flex-row items-start md:items-center">
+            <div class="flex items-center mb-2 md:mb-0 md:w-1/3">
+                <img src="" alt="Player" class="player-avatar">
+                <div class="ml-3">
+                    <h5 class="font-bold text-white player-name"></h5>
+                    <p class="text-xs text-gray-400 player-baseline"></p>
+                </div>
+            </div>
+            <div class="flex items-center justify-start md:justify-center space-x-4 md:w-1D3">
+                <div class="text-center">
+                    <span class="text-xs text-gray-400">PTS</span>
+                    <p class="text-xl font-bold forecast-pts"></p>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs text-gray-400">REB</span>
+                    <p class="text-xl font-bold forecast-reb"></p>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs text-gray-400">AST</span>
+                    <p class="text-xl font-bold forecast-ast"></p>
+                </div>
+            </div>
+            <div class="reasoning-card p-3 rounded-md mt-3 md:mt-0 md:w-1/3">
+                <p class="text-sm text-gray-200 analyst-reasoning"></p>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // --- STATIC DATA STORE ---
+        // This data is STATIC because the BallDontLie.io free tier
+        // does not provide live player stats or injuries.
+        // The game schedule will be loaded from the live API.
+        const staticData = {
+            // We use this to map team IDs from the API to our logo and key player data
+            teamData: {
+                1: { name: "Atlanta Hawks", short: "ATL", logo: "https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg", keyPlayers: ["Trae Young", "Kristaps Porzingis", "Bogdan Bogdanovic"] },
+                2: { name: "Boston Celtics", short: "BOS", logo: "https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg", keyPlayers: [] },
+                3: { name: "Brooklyn Nets", short: "BKN", logo: "https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg", keyPlayers: [] },
+                4: { name: "Charlotte Hornets", short: "CHA", logo: "https://cdn.nba.com/logos/nba/1610612766/primary/L/logo.svg", keyPlayers: [] },
+                5: { name: "Chicago Bulls", short: "CHI", logo: "https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg", keyPlayers: ["Josh Giddey", "Nikola Vucevic", "Coby White"] },
+                6: { name: "Cleveland Cavaliers", short: "CLE", logo: "https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg", keyPlayers: ["Donovan Mitchell", "Darius Garland", "Evan Mobley"] },
+                7: { name: "Dallas Mavericks", short: "DAL", logo: "https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg", keyPlayers: ["Anthony Davis", "Cooper Flagg", "D'Angelo Russell", "Dereck Lively II"] },
+                8: { name: "Denver Nuggets", short: "DEN", logo: "https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg", keyPlayers: ["Nikola Jokic", "Jamal Murray", "Jonas Valanciunas"] },
+                9: { name: "Detroit Pistons", short: "DET", logo: "https://cdn.nba.com/logos/nba/1610612765/primary/L/logo.svg", keyPlayers: [] },
+                10: { name: "Golden State Warriors", short: "GSW", logo: "https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg", keyPlayers: [] },
+                11: { name: "Houston Rockets", short: "HOU", logo: "https://cdn.nba.com/logos/nba/1610612745/primary/L/logo.svg", keyPlayers: [] },
+                12: { name: "Indiana Pacers", short: "IND", logo: "https://cdn.nba.com/logos/nba/1610612754/primary/L/logo.svg", keyPlayers: ["Pascal Siakam", "Myles Turner", "Andrew Nembhard"] },
+                13: { name: "Los Angeles Clippers", short: "LAC", logo: "https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg", keyPlayers: ["Kawhi Leonard", "James Harden", "Bradley Beal", "Chris Paul"] },
+                14: { name: "Los Angeles Lakers", short: "LAL", logo: "https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg", keyPlayers: ["Luka Doncic", "LeBron James", "Austin Reaves", "Deandre Ayton", "Rui Hachimura"] },
+                15: { name: "Memphis Grizzlies", short: "MEM", logo: "https://cdn.nba.com/logos/nba/1610612763/primary/L/logo.svg", keyPlayers: [] },
+                16: { name: "Miami Heat", short: "MIA", logo: "https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg", keyPlayers: ["Bam Adebayo", "Tyler Herro", "Norman Powell", "Andrew Wiggins"] },
+                17: { name: "Milwaukee Bucks", short: "MIL", logo: "https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg", keyPlayers: [] },
+                18: { name: "Minnesota Timberwolves", short: "MIN", logo: "https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg", keyPlayers: [] },
+                19: { name: "New Orleans Pelicans", short: "NOP", logo: "https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg", keyPlayers: ["Zion Williamson", "CJ McCollum"] },
+                20: { name: "New York Knicks", short: "NYK", logo: "https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg", keyPlayers: [] },
+                21: { name: "Oklahoma City Thunder", short: "OKC", logo: "https://cdn.nba.com/logos/nba/1610612760/primary/L/logo.svg", keyPlayers: [] },
+                22: { name: "Orlando Magic", short: "ORL", logo: "https://cdn.nba.com/logos/nba/1610612753/primary/L/logo.svg", keyPlayers: [] },
+                23: { name: "Philadelphia 76ers", short: "PHI", logo: "https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg", keyPlayers: ["Tyrese Maxey", "Joel Embiid", "Quentin Grimes", "Kelly Oubre Jr.", "Andre Drummond"] },
+                24: { name: "Phoenix Suns", short: "PHX", logo: "https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg", keyPlayers: ["Devin Booker", "Jalen Green", "Dillon Brooks"] },
+                25: { name: "Portland Trail Blazers", short: "POR", logo: "https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg", keyPlayers: ["Anfernee Simons", "Jerami Grant", "Deni Avdija"] },
+                26: { name: "Sacramento Kings", short: "SAC", logo: "https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg", keyPlayers: [] },
+                27: { name: "San Antonio Spurs", short: "SAS", logo: "https://cdn.nba.com/logos/nba/1610612759/primary/L/logo.svg", keyPlayers: ["Victor Wembanyama", "Devin Vassell", "Jeremy Sochan", "Stephon Castle"] },
+                28: { name: "Toronto Raptors", short: "TOR", logo: "https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg", keyPlayers: ["Scottie Barnes", "RJ Barrett", "Brandon Ingram", "Immanuel Quickley"] },
+                29: { name: "Utah Jazz", short: "UTA", logo: "https://cdn.nba.com/logos/nba/1610612762/primary/L/logo.svg", keyPlayers: [] },
+                30: { name: "Washington Wizards", short: "WAS", logo: "https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg", keyPlayers: ["Kyle Kuzma", "Jordan Poole"] }
+            },
+
+            // Baseline stats (season averages)
+            playerBaselines: {
+                // DAL @ WAS
+                "Anthony Davis": { pts: 20.8, reb: 10.2, ast: 2.2, team: "DAL" },
+                "Kyrie Irving": { pts: 25.6, reb: 5.0, ast: 5.2, team: "DAL" }, // Pre-injury avg
+                "Cooper Flagg": { pts: 14.1, reb: 6.6, ast: 2.7, team: "DAL" }, 
+                "Dereck Lively II": { pts: 5.3, reb: 5.0, ast: 3.0, team: "DAL" },
+                "D'Angelo Russell": { pts: 12.6, reb: 3.0, ast: 5.6, team: "DAL" },
+                "Kyle Kuzma": { pts: 22.2, reb: 6.6, ast: 4.2, team: "WAS" },
+                "Jordan Poole": { pts: 17.4, reb: 2.7, ast: 4.4, team: "WAS" },
+                
+                // TOR @ PHI
+                "Scottie Barnes": { pts: 20.1, reb: 7.2, ast: 5.0, team: "TOR" },
+                "RJ Barrett": { pts: 20.6, reb: 4.9, ast: 3.6, team: "TOR" },
+                "Brandon Ingram": { pts: 21.0, reb: 6.1, ast: 3.9, team: "TOR" },
+                "Immanuel Quickley": { pts: 15.2, reb: 4.4, ast: 7.0, team: "TOR" },
+                "Jakob Poeltl": { pts: 6.5, reb: 5.3, ast: 2.3, team: "TOR" },
+                "Tyrese Maxey": { pts: 33.5, reb: 5.1, ast: 8.5, team: "PHI" },
+                "Joel Embiid": { pts: 17.8, reb: 5.4, ast: 3.2, team: "PHI" }, // Limited mins
+                "Kelly Oubre Jr.": { pts: 19.3, reb: 5.5, ast: 1.4, team: "PHI" },
+                "Quentin Grimes": { pts: 18.3, reb: 4.3, ast: 4.8, team: "PHI" }, 
+                "Andre Drummond": { pts: 5.9, reb: 7.6, ast: 0.6, team: "PHI" }, 
+                "VJ Edgecombe": { pts: 17.6, reb: 5.6, ast: 4.8, team: "PHI" },
+
+                // POR @ MIA
+                "Anfernee Simons": { pts: 14.3, reb: 2.0, ast: 1.6, team: "POR" },
+                "Scoot Henderson": { pts: 14.0, reb: 3.1, ast: 5.0, team: "POR" },
+                "Jerami Grant": { pts: 21.0, reb: 4.5, ast: 2.4, team: "POR" },
+                "Deni Avdija": { pts: 14.5, reb: 6.0, ast: 3.8, team: "POR" },
+                "Bam Adebayo": { pts: 22.4, reb: 9.1, ast: 3.3, team: "MIA" },
+                "Jimmy Butler": { pts: 20.8, reb: 5.3, ast: 5.0, team: "MIA" },
+                "Tyler Herro": { pts: 20.0, reb: 5.0, ast: 4.0, team: "MIA" },
+                "Norman Powell": { pts: 13.9, reb: 2.6, ast: 1.1, team: "MIA" },
+                "Andrew Wiggins": { pts: 12.0, reb: 4.0, ast: 1.5, team: "MIA" },
+
+                // CHI @ CLE
+                "Josh Giddey": { pts: 12.3, reb: 7.8, ast: 6.1, team: "CHI" },
+                "Nikola Vucevic": { pts: 18.0, reb: 10.5, ast: 3.3, team: "CHI" },
+                "Coby White": { pts: 19.1, reb: 4.5, ast: 5.1, team: "CHI" },
+                "Donovan Mitchell": { pts: 29.6, reb: 4.7, ast: 3.9, team: "CLE" },
+                "Darius Garland": { pts: 18.0, reb: 2.7, ast: 6.5, team: "CLE" },
+                "Evan Mobley": { pts: 15.7, reb: 9.4, ast: 3.2, team: "CLE" },
+
+                // LAL @ ATL
+                "Luka Doncic": { pts: 33.9, reb: 9.2, ast: 9.8, team: "LAL" },
+                "LeBron James": { pts: 24.3, reb: 7.4, ast: 7.9, team: "LAL" },
+                "Austin Reaves": { pts: 15.9, reb: 4.3, ast: 5.5, team: "LAL" },
+                "Deandre Ayton": { pts: 14.1, reb: 10.2, ast: 1.8, team: "LAL" },
+                "Rui Hachimura": { pts: 13.6, reb: 4.3, ast: 1.2, team: "LAL" },
+                "Trae Young": { pts: 17.8, reb: 2.0, ast: 7.8, team: "ATL" },
+                "Kristaps Porzingis": { pts: 20.5, reb: 7.2, ast: 2.0, team: "ATL" },
+                "Bogdan Bogdanovic": { pts: 15.2, reb: 3.1, ast: 2.5, team: "ATL" },
+                
+                // NOP @ SAS
+                "Zion Williamson": { pts: 22.8, reb: 6.8, ast: 4.6, team: "NOP" },
+                "CJ McCollum": { pts: 20.0, reb: 4.3, ast: 5.6, team: "NOP" },
+                "Victor Wembanyama": { pts: 25.1, reb: 12.3, ast: 3.3, team: "SAS" },
+                "De'Aaron Fox": { pts: 27.2, reb: 4.8, ast: 6.6, team: "SAS" },
+                "Devin Vassell": { pts: 19.5, reb: 4.1, ast: 2.7, team: "SAS" },
+                "Jeremy Sochan": { pts: 11.6, reb: 6.4, ast: 3.4, team: "SAS" },
+                "Stephon Castle": { pts: 8.2, reb: 3.1, ast: 2.5, team: "SAS" },
+
+                // IND @ DEN
+                "Tyrese Haliburton": { pts: 0, reb: 0, ast: 0, team: "IND" }, // Out
+                "Pascal Siakam": { pts: 21.3, reb: 7.8, ast: 4.9, team: "IND" },
+                "Myles Turner": { pts: 17.1, reb: 6.9, ast: 1.3, team: "IND" },
+                "Andrew Nembhard": { pts: 9.2, reb: 2.1, ast: 4.1, team: "IND" },
+                "Nikola Jokic": { pts: 24.4, reb: 12.9, ast: 11.6, team: "DEN" },
+                "Jamal Murray": { pts: 21.2, reb: 4.1, ast: 6.5, team: "DEN" },
+                "Jonas Valanciunas": { pts: 12.2, reb: 8.8, ast: 2.1, team:"DEN" },
+
+                // PHX @ LAC
+                "Devin Booker": { pts: 30.2, reb: 4.1, ast: 7.0, team: "PHX" },
+                "Jalen Green": { pts: 19.6, reb: 5.2, ast: 3.5, team: "PHX" },
+                "Dillon Brooks": { pts: 12.7, reb: 3.4, ast: 1.7, team: "PHX" },
+                "Bradley Beal": { pts: 18.2, reb: 4.1, ast: 5.0, team: "LAC" },
+                "Kawhi Leonard": { pts: 24.3, reb: 5.9, ast: 3.3, team: "LAC" },
+                "James Harden": { pts: 16.6, reb: 5.1, ast: 8.5, team: "LAC" },
+                "Chris Paul": { pts: 9.2, reb: 3.9, ast: 8.9, team: "LAC" },
+            },
+
+            // Injury report for Nov 8, 2025
+            // This is static and will need to be updated manually or by upgrading your API plan
+            injuryReport: {
+                "DAL": ["Kyrie Irving (OUT - Knee)", "Anthony Davis (QST - Leg)"],
+                "WAS": [],
+                "TOR": [],
+                "PHI": ["Paul George (OUT - Knee)"],
+                "POR": ["Scoot Henderson (OUT - Hamstring)", "Robert Williams III (OUT - Knee)"],
+                "MIA": ["Jimmy Butler (QST - Illness)"],
+                "CHI": [],
+                "CLE": ["Lonzo Ball (OUT - Knee)"],
+                "LAL": ["LeBron James (QST - Sciatica)", "Austin Reaves (OUT - Groin)"],
+                "ATL": ["Trae Young (QST - Knee)", "Jalen Johnson (OUT - Ankle)"],
+                "NOP": ["Zion Williamson (QST - Hamstring)"],
+                "SAS": ["De'Aaron Fox (OUT - Hamstring)"],
+                "IND": ["Tyrese Haliburton (OUT - Achilles)"],
+                "DEN": [],
+                "PHX": [],
+                "LAC": ["Kawhi Leonard (QST - Ankle)"]
+            },
+        };
+
+        // --- APPLICATION LOGIC ---
+
+        // This will store the live game schedule fetched from the API
+        let liveGameSchedule = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Set today's date in the header
+            const today = new Date();
+            document.getElementById("current-date").textContent = today.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Start the process of loading live games
+            loadLiveGames();
+        });
+
+        async function loadLiveGames() {
+            const loadingEl = document.getElementById("loading");
+            const scheduleContainer = document.getElementById("game-schedule");
+            const noGamesEl = document.getElementById("no-games");
+            
+            try {
+                // Fetch data from our serverless function
+                const response = await fetch('/.netlify/functions/get-nba-games');
+                if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+                const apiResult = await response.json();
+                const games = apiResult.data;
+
+                if (!games || games.length === 0) {
+                    loadingEl.classList.add("hidden");
+                    noGamesEl.classList.remove("hidden");
+                    return;
+                }
+
+                // Transform API data into the format our app expects
+                liveGameSchedule = games.map(game => {
+                    const awayTeam = staticData.teamData[game.visitor_team.id] || { name: game.visitor_team.full_name, short: game.visitor_team.abbreviation, logo: '', keyPlayers: [] };
+                    const homeTeam = staticData.teamData[game.home_team.id] || { name: game.home_team.full_name, short: game.home_team.abbreviation, logo: '', keyPlayers: [] };
+
+                    return {
+                        id: game.id,
+                        // Format the time to be readable
+                        time: new Date(game.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
+                        awayTeam: awayTeam,
+                        homeTeam: homeTeam,
+                        // Combine key players from both teams
+                        keyPlayers: (awayTeam.keyPlayers || []).concat(homeTeam.keyPlayers || [])
+                    };
+                });
+
+                // Once data is loaded and transformed, render the schedule
+                renderGameSchedule();
+
+                // Hide loading, show schedule
+                loadingEl.classList.add("hidden");
+                scheduleContainer.classList.remove("hidden");
+
+                // Render the first game's forecast by default
+                if (liveGameSchedule.length > 0) {
+                    renderForecast(liveGameSchedule[0].id);
+                }
+
+            } catch (error) {
+                console.error("Failed to load live games:", error);
+                loadingEl.innerHTML = `<p class="text-red-400">Failed to load game data. Is the API key set up correctly?</p>`;
+            }
+        }
+
+        function renderGameSchedule() {
+            const scheduleContainer = document.getElementById("game-schedule");
+            const template = document.getElementById("game-card-template");
+            scheduleContainer.innerHTML = ''; // Clear previous
+
+            liveGameSchedule.forEach(game => {
+                const card = template.content.cloneNode(true);
+                card.querySelector(".card").dataset.gameId = game.id;
+                card.querySelector(".away-logo").src = game.awayTeam.logo || 'https://placehold.co/60x60/374151/f3f4f6?text=NBA';
+                card.querySelector(".away-short").textContent = game.awayTeam.short;
+                card.querySelector(".home-logo").src = game.homeTeam.logo || 'https://placehold.co/60x60/374151/f3f4f6?text=NBA';
+                card.querySelector(".home-short").textContent = game.homeTeam.short;
+                card.querySelector(".game-time").textContent = game.time;
+                scheduleContainer.appendChild(card);
+            });
+        }
+
+        function renderForecast(gameId) {
+            const game = liveGameSchedule.find(g => g.id == gameId);
+            if (!game) return;
+
+            const forecastContainer = document.getElementById("forecast-details");
+            const template = document.getElementById("forecast-card-template");
+            forecastContainer.innerHTML = ''; // Clear previous
+            
+            const card = template.content.cloneNode(true);
+
+            // Fill header
+            card.querySelector(".away-logo").src = game.awayTeam.logo || 'https://placehold.co/60x60/374151/f3f4f6?text=NBA';
+            card.querySelector(".away-name").textContent = game.awayTeam.name;
+            card.querySelector(".home-logo").src = game.homeTeam.logo || 'https://placehold.co/60x60/374151/f3f4f6?text=NBA';
+            card.querySelector(".home-name").textContent = game.homeTeam.name;
+            card.querySelector(".game-time").textContent = game.time;
+
+            // Fill Injury Report (from our static data)
+            const awayInjuries = staticData.injuryReport[game.awayTeam.short] || [];
+            const homeInjuries = staticData.injuryReport[game.homeTeam.short] || [];
+            
+            const awayInjuryList = card.querySelector(".away-injuries ul");
+            card.querySelector(".away-short").textContent = game.awayTeam.short;
+            if (awayInjuries.length > 0) {
+                awayInjuries.forEach(report => {
+                    const li = document.createElement("li");
+                    li.textContent = report;
+                    if (report.includes("OUT")) li.className = "status-out";
+                    if (report.includes("QST")) li.className = "status-qst";
+                    awayInjuryList.appendChild(li);
+                });
+            } else {
+                awayInjuryList.innerHTML = `<li class="text-gray-400">No injuries reported.</li>`;
+            }
+
+            const homeInjuryList = card.querySelector(".home-injuries ul");
+            card.querySelector(".home-short").textContent = game.homeTeam.short;
+             if (homeInjuries.length > 0) {
+                homeInjuries.forEach(report => {
+                    const li = document.createElement("li");
+                    li.textContent = report;
+                    if (report.includes("OUT")) li.className = "status-out";
+                    if (report.includes("QST")) li.className = "status-qst";
+                    homeInjuryList.appendChild(li);
+                });
+            } else {
+                homeInjuryList.innerHTML = `<li class="text-gray-400">No injuries reported.</li>`;
+            }
+
+            // Fill Player Forecasts
+            const playerList = card.querySelector(".player-list");
+            game.keyPlayers.forEach(playerName => {
+                const player = generatePlayerForecast(playerName, game.awayTeam.short, game.homeTeam.short);
+                const playerTemplate = document.getElementById("player-item-template");
+                const playerItem = playerTemplate.content.cloneNode(true);
+
+                // Create a generic avatar
+                const initials = playerName.split(' ').map(n => n[0]).join('');
+                playerItem.querySelector(".player-avatar").src = `https://placehold.co/40x40/374151/f3f4f6?text=${initials}`;
+                playerItem.querySelector(".player-avatar").alt = playerName;
+                
+                playerItem.querySelector(".player-name").textContent = playerName;
+                playerItem.querySelector(".player-baseline").textContent = `Avg: ${player.baseline.pts}p / ${player.baseline.reb}r / ${player.baseline.ast}a`;
+
+                playerItem.querySelector(".forecast-pts").textContent = player.forecast.pts;
+                playerItem.querySelector(".forecast-pts").classList.add(player.trend.pts);
+                playerItem.querySelector(".forecast-reb").textContent = player.forecast.reb;
+                playerItem.querySelector(".forecast-reb").classList.add(player.trend.reb);
+                playerItem.querySelector(".forecast-ast").textContent = player.forecast.ast;
+                playerItem.querySelector(".forecast-ast").classList.add(player.trend.ast);
+
+                playerItem.querySelector(".analyst-reasoning").textContent = player.reasoning;
+                
+                playerList.appendChild(playerItem);
+            });
+
+            forecastContainer.appendChild(card);
+        }
+
+        function generatePlayerForecast(playerName, awayShort, homeShort) {
+            const baseline = staticData.playerBaselines[playerName];
+            if (!baseline) {
+                return {
+                    baseline: { pts: 0, reb: 0, ast: 0 },
+                    forecast: { pts: 0, reb: 0, ast: 0 },
+                    trend: { pts: 'forecast-flat', reb: 'forecast-flat', ast: 'forecast-flat' },
+                    reasoning: "No baseline data available."
+                };
+            }
+
+            const forecast = { ...baseline };
+            let reasoning = "Baseline projection. No major injuries or matchup factors identified.";
+            const injuries = staticData.injuryReport;
+            const teamInjuries = injuries[baseline.team] || [];
+            
+            // --- START ANALYST FORECAST LOGIC ---
+            
+            // 1. Check for SELF-INJURY
+            const selfInjury = teamInjuries.find(r => r.startsWith(playerName));
+            if (selfInjury && selfInjury.includes("QST")) {
+                forecast.pts = Math.round(baseline.pts * 0.8);
+                forecast.reb = Math.round(baseline.reb * 0.8);
+                forecast.ast = Math.round(baseline.ast * 0.8);
+                reasoning = "QUESTIONABLE. Forecast is lowered as they will be limited or a game-time decision.";
+            } else if (selfInjury && selfInjury.includes("OUT")) {
+                forecast.pts = 0;
+                forecast.reb = 0;
+                forecast.ast = 0;
+                reasoning = "OUT. This player will not play.";
+            }
+            // 2. Check for TEAMMATE INJURIES (Domino Effect)
+            else {
+                switch (playerName) {
+                    // --- DAL @ WAS ---
+                    case "Anthony Davis":
+                        if (injuries["DAL"].includes("Kyrie Irving (OUT - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.15);
+                            forecast.reb = Math.round(baseline.reb * 1.1);
+                            reasoning = "Kyrie is OUT. AD becomes the undisputed #1 option and will see a major usage increase.";
+                        }
+                        break;
+                    case "D'Angelo Russell":
+                        if (injuries["DAL"].includes("Kyrie Irving (OUT - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.3);
+                            forecast.ast = Math.round(baseline.ast * 1.2);
+                            reasoning = "Kyrie is OUT. D'Lo moves into the primary ball-handler role and will see a huge bump in minutes and opportunities.";
+                        }
+                        break;
+                    case "Cooper Flagg":
+                        if (injuries["DAL"].includes("Kyrie Irving (OUT - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.15);
+                            forecast.ast = Math.round(baseline.ast * 1.1);
+                            reasoning = "Kyrie is OUT. The rookie #1 pick will function as the #2 option on offense tonight. Expect high usage.";
+                        }
+                        break;
+                    case "Dereck Lively II":
+                        if (injuries["DAL"].includes("Anthony Davis (QST - Leg)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.2);
+                            forecast.reb = Math.round(baseline.reb * 1.3);
+                            reasoning = "AD is QST. Lively's minutes and rebounding opportunities will skyrocket if AD sits.";
+                        }
+                        break;
+
+                    // --- TOR @ PHI ---
+                    case "Tyrese Maxey":
+                        if (injuries["PHI"].includes("Paul George (OUT - Knee)")) {
+                            forecast.ast = Math.round(baseline.ast * 0.9);
+                            reasoning = "Paul George is OUT. Maxey's usage will be massive, but he's the only primary threat. Expect a full-on defensive assault from a healthy TOR. Assists may dip with one less finisher.";
+                        }
+                        break;
+                    case "Kelly Oubre Jr.":
+                    case "Quentin Grimes":
+                    case "VJ Edgecombe":
+                        if (injuries["PHI"].includes("Paul George (OUT - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.15);
+                            reasoning = "Paul George is OUT. This player becomes a primary scoring option and will see a significant bump in shots and usage.";
+                        }
+                        break;
+                    case "Andre Drummond":
+                        if (baseline.team === "PHI") {
+                            forecast.reb = Math.round(baseline.reb * 1.3);
+                            reasoning = "Embiid is on a minutes restriction (~23 mins). Drummond will play ~25 mins and dominate the glass in that time.";
+                        }
+                        break;
+                    case "RJ Barrett":
+                    case "Brandon Ingram":
+                        if (injuries["PHI"].includes("Paul George (OUT - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            reasoning = "Favorable Matchup. With elite wing defender Paul George OUT, this player faces a much easier defensive assignment (Oubre/Edgecombe).";
+                        }
+                        break;
+                    
+                    // --- POR @ MIA ---
+                    case "Anfernee Simons":
+                    case "Deni Avdija":
+                        if (injuries["POR"].includes("Scoot Henderson (OUT - Hamstring)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.15);
+                            forecast.ast = Math.round(baseline.ast * 1.1);
+                            reasoning = "Scoot Henderson is OUT. This player will see a major bump in ball-handling and scoring opportunities.";
+                        }
+                        break;
+                    case "Norman Powell":
+                    case "Andrew Wiggins":
+                        if (injuries["MIA"].includes("Jimmy Butler (QST - Illness)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.25);
+                            reasoning = "Jimmy Butler is QST. If Butler sits, this player will absorb most of his minutes and scoring load on the wing.";
+                        }
+                        break;
+
+                    // --- LAL @ ATL ---
+                    case "Luka Doncic":
+                        if (injuries["LAL"].includes("LeBron James (QST - Sciatica)") || injuries["LAL"].includes("Austin Reaves (OUT - Groin)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            forecast.ast = Math.round(baseline.ast * 1.15);
+                            reasoning = "Key playmakers (LeBron/Reaves) are OUT or QST. Luka's already historic usage rate will go even higher. He will control everything.";
+                        }
+                        break;
+                    case "Deandre Ayton":
+                        if (injuries["LAL"].includes("LeBron James (QST - Sciatica)") || injuries["LAL"].includes("Austin Reaves (OUT - Groin)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            forecast.reb = Math.round(baseline.reb * 1.1);
+                            reasoning = "With key scorers banged up, Ayton becomes a more critical #2/3 option and will get more looks in the P&R with Luka.";
+                        }
+                        break;
+                    case "Rui Hachimura":
+                         if (injuries["LAL"].includes("LeBron James (QST - Sciatica)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.3);
+                            forecast.reb = Math.round(baseline.reb * 1.2);
+                            reasoning = "LeBron is QST. If he sits, Rui is the direct beneficiary, will likely start, and absorb his minutes and scoring load at the forward spot.";
+                        } else if (injuries["LAL"].includes("Austin Reaves (OUT - Groin)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            reasoning = "Reaves is OUT. Rui should see an increase in shots as the offense looks for other scoring options.";
+                        }
+                        break;
+                    case "Kristaps Porzingis":
+                        if (injuries["ATL"].includes("Trae Young (QST - Knee)") || injuries["ATL"].includes("Jalen Johnson (OUT - Ankle)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.2);
+                            forecast.reb = Math.round(baseline.reb * 1.1);
+                            reasoning = "Trae is QST and Jalen Johnson is OUT. Porzingis becomes the clear #1 offensive option. Expect a huge usage night.";
+                        }
+                        break;
+                    case "Bogdan Bogdanovic":
+                         if (injuries["ATL"].includes("Trae Young (QST - Knee)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.25);
+                            reasoning = "Trae is QST. If Trae sits, Bogdanovic becomes the primary 6th man scorer and will see a major green light off the bench.";
+                        }
+                        break;
+
+                    // --- NOP @ SAS ---
+                    case "Devin Vassell":
+                    case "Jeremy Sochan":
+                        if (injuries["SAS"].includes("De'Aaron Fox (OUT - Hamstring)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            forecast.ast = Math.round(baseline.ast * 1.1);
+                            reasoning = "De'Aaron Fox is OUT. This player will see a significant increase in ball-handling and scoring opportunities.";
+                        }
+                        break;
+                    case "Stephon Castle":
+                        if (injuries["SAS"].includes("De'Aaron Fox (OUT - Hamstring)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.3);
+                            forecast.ast = Math.round(baseline.ast * 1.2);
+                            reasoning = "De'Aaron Fox is OUT. The rookie PG will absorb the backup ball-handling duties and should see a major increase in minutes.";
+                        }
+                        break;
+                    
+                    // --- IND @ DEN ---
+                    case "Pascal Siakam":
+                        if (injuries["IND"].includes("Tyrese Haliburton (OUT - Achilles)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.2);
+                            forecast.reb = Math.round(baseline.reb * 1.1);
+                            reasoning = "Haliburton is OUT for the season. Siakam is the undisputed #1 option on offense every night.";
+                        }
+                        break;
+                    case "Myles Turner":
+                        if (injuries["IND"].includes("Tyrese Haliburton (OUT - Achilles)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.15);
+                            reasoning = "Haliburton is OUT. Turner becomes the clear #2 scoring option and will see more looks.";
+                        }
+                        break;
+                    case "Andrew Nembhard":
+                        if (injuries["IND"].includes("Tyrese Haliburton (OUT - Achilles)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.3);
+                            forecast.ast = Math.round(baseline.ast * 1.5);
+                            reasoning = "Haliburton is OUT. Nembhard is the starting PG and primary ball-handler by default. Huge assist and minutes upside.";
+                        }
+                        break;
+                    case "Jonas Valanciunas":
+                        if (baseline.team === "DEN") {
+                            reasoning = "Key bench big. Will provide rebounding and post-scoring against his former team's backup (Turner).";
+                        }
+                        break;
+                    
+                    // --- PHX @ LAC ---
+                    case "James Harden":
+                    case "Bradley Beal":
+                    case "Chris Paul":
+                         if (injuries["LAC"].includes("Kawhi Leonard (QST - Ankle)")) {
+                            forecast.pts = Math.round(baseline.pts * 1.1);
+                            forecast.ast = Math.round(baseline.ast * 1.15);
+                            reasoning = "Kawhi is QST. If he sits, this player's usage and playmaking duties will increase substantially.";
+                        }
+                        break;
+                }
+            }
+            // --- END ANALYST FORECAST LOGIC ---
+
+            const trend = {
+                pts: forecast.pts > baseline.pts * 1.05 ? 'forecast-up' : (forecast.pts < baseline.pts * 0.95 ? 'forecast-down' : 'forecast-flat'),
+                reb: forecast.reb > baseline.reb * 1.05 ? 'forecast-up' : (forecast.reb < baseline.reb * 0.95 ? 'forecast-down' : 'forecast-flat'),
+                ast: forecast.ast > baseline.ast * 1.05 ? 'forecast-up' : (forecast.ast < baseline.ast * 0.95 ? 'forecast-down' : 'forecast-flat'),
+            };
+
+            // Handle 0 baseline for OUT players
+            if (baseline.pts === 0) trend.pts = 'forecast-flat';
+            if (baseline.reb === 0) trend.reb = 'forecast-flat';
+            if (baseline.ast === 0) trend.ast = 'forecast-flat';
+
+
+            return {
+                baseline,
+                forecast: {
+                    pts: forecast.pts.toFixed(0),
+                    reb: forecast.reb.toFixed(0),
+                    ast: forecast.ast.toFixed(0)
+                },
+                trend,
+                reasoning
+            };
+        }
+
+    </script>
+</body>
+</html>

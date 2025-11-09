@@ -1,0 +1,59 @@
+// This is your secure serverless function.
+// It runs on a server, not in the browser.
+
+// We need a fetch library for Node.js
+const fetch = require('node-fetch');
+
+// The main handler function
+exports.handler = async function(event, context) {
+    // 1. Get the secret API key from your Netlify environment variables
+    const API_KEY = process.env.BALLDONTLIE_API_KEY;
+
+    if (!API_KEY) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "API key is not set." })
+        };
+    }
+
+    // 2. Get today's date and format it as YYYY-MM-DD
+    const getTodayDate = () => {
+        const d = new Date();
+        // Adjust for timezone offset to get the correct local date
+        const offset = d.getTimezoneOffset() * 60000; // offset in milliseconds
+        const localDate = new Date(d.getTime() - offset);
+        return localDate.toISOString().split('T')[0];
+    };
+    const today = getTodayDate();
+
+    // 3. Set up the API call to BallDontLie.io
+    const API_URL = `https://api.balldontlie.io/v1/games?dates[]=${today}`;
+
+    try {
+        // 4. Fetch the data using your secret key
+        const response = await fetch(API_URL, {
+            method: 'GET',
+            headers: {
+                'Authorization': API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            return { statusCode: response.status, body: response.statusText };
+        }
+
+        const data = await response.json();
+
+        // 5. Send the live game data back to your app
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data)
+        };
+
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
+        };
+    }
+};
